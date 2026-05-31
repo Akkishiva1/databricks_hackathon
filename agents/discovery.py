@@ -71,7 +71,7 @@ Rules:
 - If escalation_flag is null, treat it as N.
 - Include customer name and email only if available in the source data.
 - Do not invent customer name, email, loan, DPD, risk score, or amount values.
-- Limit to maximum 10 customers.
+- Limit to maximum 100 customers.
 """
 
 
@@ -320,7 +320,7 @@ Rules:
 - If DPD is not mentioned, use min_dpd 0.
 - If max DPD is not needed, use null.
 - If user asks top overdue or highest DPD, sort_by should be dpd.
-- If limit is not mentioned, use limit 5.
+- If limit is not mentioned, use limit 100.
 - Use sort_by risk_score by default.
 - Return JSON only.
 """
@@ -343,7 +343,7 @@ Rules:
             "no_escalation_only": False,
             "broken_ptp_only": False,
             "refused_only": False,
-            "limit": 5,
+            "limit": 100,
             "sort_by": "risk_score"
         }
 
@@ -354,7 +354,7 @@ Rules:
     params["no_escalation_only"] = bool(params.get("no_escalation_only", False))
     params["broken_ptp_only"] = bool(params.get("broken_ptp_only", False))
     params["refused_only"] = bool(params.get("refused_only", False))
-    params["limit"] = int(params.get("limit", 5))
+    params["limit"] = int(params.get("limit", 100))
     params["sort_by"] = params.get("sort_by", "risk_score")
 
     question_lower = user_question.lower()
@@ -400,7 +400,7 @@ Rules:
     if params["sort_by"] not in ["risk_score", "dpd"]:
         params["sort_by"] = "risk_score"
 
-    params["limit"] = max(1, min(params["limit"], 20))
+    params["limit"] = max(1, min(params["limit"], 100))
 
     return params
 
