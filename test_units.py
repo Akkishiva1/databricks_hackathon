@@ -4,12 +4,20 @@ Comprehensive unit tests for modular components.
 """
 import unittest
 import json
+import sys
+from unittest.mock import MagicMock
+# Mock heavy dependencies before importing modules that depend on them
+sys.modules.setdefault('streamlit', MagicMock())
+sys.modules.setdefault('databricks', MagicMock())
+sys.modules.setdefault('databricks.sql', MagicMock())
+
 from text_processors import (
     extract_json_from_text, contains_kannada, contains_devanagari,
     clean_agent_text, parse_possible_dict
 )
 from pricing import calculate_dbu_cost, extract_usage
 from customer_helpers import get_default_customer_name, get_default_customer_email
+from databricks_client import escape_sql
 
 
 class TestTextProcessors(unittest.TestCase):
@@ -170,6 +178,40 @@ class TestCustomerHelpers(unittest.TestCase):
         self.assertEqual(email, "test@example.com")
 
 
+class TestEscapeSql(unittest.TestCase):
+    """Test SQL escaping to prevent injection."""
+
+    def test_escape_single_quote(self):
+        self.assertEqual(escape_sql("O'Brien"), "O''Brien")
+
+    def test_escape_backslash(self):
+        self.assertEqual(escape_sql("path\\value"), "path\\\\value")
+
+    def test_escape_both(self):
+        self.assertEqual(escape_sql("it\\'s"), "it\\\\''s")
+
+    def test_escape_none(self):
+        self.assertEqual(escape_sql(None), "")
+
+    def test_escape_no_special_chars(self):
+        self.assertEqual(escape_sql("hello world"), "hello world")
+
+    def test_escape_sql_injection_attempt(self):
+        payload = "'; DROP TABLE users; --"
+        escaped = escape_sql(payload)
+        # Quote is doubled, making the injection inert inside a SQL string literal
+        self.assertTrue(escaped.startswith("''"))
+        self.assertIn("''", escaped)
+
+    def test_table_name_validation(self):
+        import re
+        pattern = re.compile(r'^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$')
+        self.assertTrue(pattern.match("catalog.schema.table"))
+        self.assertFalse(pattern.match("catalog.schema.table; DROP TABLE"))
+        self.assertFalse(pattern.match("../../../etc/passwd"))
+        self.assertFalse(pattern.match("table"))
+
+
 class TestConfig(unittest.TestCase):
     """Test configuration constants."""
     
@@ -212,6 +254,7 @@ def run_tests():
     suite.addTests(loader.loadTestsFromTestCase(TestTextProcessors))
     suite.addTests(loader.loadTestsFromTestCase(TestPricing))
     suite.addTests(loader.loadTestsFromTestCase(TestCustomerHelpers))
+    suite.addTests(loader.loadTestsFromTestCase(TestEscapeSql))
     suite.addTests(loader.loadTestsFromTestCase(TestConfig))
     
     runner = unittest.TextTestRunner(verbosity=2)

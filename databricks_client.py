@@ -21,10 +21,10 @@ def get_sql_connection():
 
 
 def escape_sql(value) -> str:
-    """Escape SQL string values."""
+    """Escape SQL string values (single quotes and backslashes)."""
     if value is None:
         return ""
-    return str(value).replace("'", "''")
+    return str(value).replace("\\", "\\\\").replace("'", "''")
 
 
 @st.cache_data(ttl=300, show_spinner=False)
