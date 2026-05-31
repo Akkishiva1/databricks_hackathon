@@ -1,0 +1,41 @@
+command: ["streamlit", "run", "app.py"]
+
+env:
+  - name: "STREAMLIT_GATHER_USAGE_STATS"
+    value: "false"
+
+  - name: "DATABRICKS_SERVER_HOSTNAME"
+    value: "adb-7405606631030160.0.azuredatabricks.net"
+
+  - name: "DATABRICKS_HTTP_PATH"
+    value: "/sql/1.0/warehouses/a03632f2c7ae023d"
+
+  - name: "DATABRICKS_TOKEN"
+    value: "dapi94e2b453cd9de420edc88a6b76127afd"
+
+  - name: "LANGFUSE_SECRET_KEY"
+    value: "sk-lf-4b8542b8-d532-431e-b472-b02f0d3f2e94"
+
+  - name: "LANGFUSE_PUBLIC_KEY"
+    value: "pk-lf-7ec4a2a1-d017-4cb2-b211-36b72435f0be"
+
+  - name: "LANGFUSE_BASE_URL"
+    value: "https://jp.cloud.langfuse.com"
+
+  - name: "LANGFUSE_HOST"
+    value: "https://jp.cloud.langfuse.com"
+
+  - name: "SMTP_HOST"
+    value: "smtp.gmail.com"
+
+  - name: "SMTP_PORT"
+    value: "587"
+
+  - name: "SMTP_USERNAME"
+    value: "akkishiva@platformatory.com"
+
+  - name: "SMTP_PASSWORD"
+    value: "cgxr whxs nbuj vixz"
+
+  - name: "SENDER_EMAIL"
+    value: "akkishiva@platformatory.com"
