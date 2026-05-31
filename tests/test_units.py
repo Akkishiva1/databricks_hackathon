@@ -5,19 +5,24 @@ Comprehensive unit tests for modular components.
 import unittest
 import json
 import sys
+import os
 from unittest.mock import MagicMock
+
+# Ensure project root is on path when running tests directly
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Mock heavy dependencies before importing modules that depend on them
 sys.modules.setdefault('streamlit', MagicMock())
 sys.modules.setdefault('databricks', MagicMock())
 sys.modules.setdefault('databricks.sql', MagicMock())
 
-from text_processors import (
+from core.text_processors import (
     extract_json_from_text, contains_kannada, contains_devanagari,
     clean_agent_text, parse_possible_dict
 )
-from pricing import calculate_dbu_cost, extract_usage
-from customer_helpers import get_default_customer_name, get_default_customer_email
-from databricks_client import escape_sql
+from core.pricing import calculate_dbu_cost, extract_usage
+from core.customer_helpers import get_default_customer_name, get_default_customer_email
+from services.databricks_client import escape_sql
 
 
 class TestTextProcessors(unittest.TestCase):

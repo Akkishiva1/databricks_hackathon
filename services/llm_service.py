@@ -4,9 +4,9 @@ LLM service for Databricks GPT-OSS endpoint calls.
 import os
 import requests
 from config import LLM_ENDPOINT_URL, LLM_ENDPOINT_NAME, INPUT_DBUS_PER_1M_TOKENS, OUTPUT_DBUS_PER_1M_TOKENS
-from text_processors import extract_llm_text
-from pricing import extract_usage
-from langfuse_service import langfuse
+from core.text_processors import extract_llm_text
+from core.pricing import extract_usage
+from services.langfuse_service import langfuse
 
 
 def call_databricks_llm(

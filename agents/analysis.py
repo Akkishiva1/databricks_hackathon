@@ -5,9 +5,9 @@ import os
 import json
 import uuid
 from config import AUDIT_TABLE, LLM_ENDPOINT_NAME, INPUT_DBUS_PER_1M_TOKENS, OUTPUT_DBUS_PER_1M_TOKENS
-from llm_service import call_databricks_llm
-from databricks_client import run_statement, escape_sql
-from langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
+from services.llm_service import call_databricks_llm
+from services.databricks_client import run_statement, escape_sql
+from services.langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
 
 
 def risk_analysis_agent(customer: dict, user_question: str) -> str:
