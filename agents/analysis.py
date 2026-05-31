@@ -157,8 +157,14 @@ def audit_logger_agent(
     """Log audit trail for compliance and tracking."""
     agent_request_id = str(uuid.uuid4())
 
-    insert_sql = f"""
-    INSERT INTO {AUDIT_TABLE} (
+    catalog, schema = AUDIT_TABLE.split(".")[:2]
+    source_table_ref = f"{catalog}.{schema}.loan_recovery_customer_360"
+
+    valid_discovery_modes = {"agent_bricks", "custom_supervisor", "hybrid", "unknown"}
+    safe_discovery_mode = discovery_mode if discovery_mode in valid_discovery_modes else "unknown"
+
+    insert_sql = """
+    INSERT INTO {audit_table} (
       agent_request_id,
       user_query,
       customer_id,
@@ -171,17 +177,28 @@ def audit_logger_agent(
       created_at
     )
     SELECT
-      '{agent_request_id}' AS agent_request_id,
-      '{escape_sql(user_query)}' AS user_query,
-      '{escape_sql(customer.get("member_id"))}' AS customer_id,
-      '{escape_sql(customer.get("loan_id"))}' AS loan_id,
-      '{escape_sql(recommended_action)}' AS recommended_action,
-      '{escape_sql(reason)}' AS reason,
-      '{escape_sql(message_draft)}' AS message_draft,
-      array('{AUDIT_TABLE.split(".")[0]}.{AUDIT_TABLE.split(".")[1]}.loan_recovery_customer_360') AS source_tables_used,
-      'hybrid_agent_bricks_custom_supervisor_{escape_sql(discovery_mode)}' AS created_by,
+      '{req_id}' AS agent_request_id,
+      '{user_query}' AS user_query,
+      '{customer_id}' AS customer_id,
+      '{loan_id}' AS loan_id,
+      '{recommended_action}' AS recommended_action,
+      '{reason}' AS reason,
+      '{message_draft}' AS message_draft,
+      array('{source_table}') AS source_tables_used,
+      '{created_by}' AS created_by,
       current_timestamp() AS created_at
-    """
+    """.format(
+        audit_table=AUDIT_TABLE,
+        req_id=escape_sql(agent_request_id),
+        user_query=escape_sql(user_query),
+        customer_id=escape_sql(customer.get("member_id")),
+        loan_id=escape_sql(customer.get("loan_id")),
+        recommended_action=escape_sql(recommended_action),
+        reason=escape_sql(reason),
+        message_draft=escape_sql(message_draft),
+        source_table=escape_sql(source_table_ref),
+        created_by=escape_sql(f"hybrid_agent_bricks_custom_supervisor_{safe_discovery_mode}"),
+    )
 
     with langfuse.start_as_current_observation(
         as_type="span",
@@ -196,7 +213,11 @@ def audit_logger_agent(
             "audit_table": AUDIT_TABLE,
         }
     ) as span:
-        run_statement(insert_sql)
+        try:
+            run_statement(insert_sql)
+        except Exception as e:
+            span.update(output={"error": str(e)}, level="ERROR")
+            return agent_request_id
 
         span.update(
             output={
