@@ -13,12 +13,12 @@ from config import (
     OUTPUT_DBUS_PER_1M_TOKENS, NORMAL_CUSTOMER_PHRASES, ESCALATION_PHRASES,
     NO_ESCALATION_PHRASES
 )
-from text_processors import extract_json_from_text, clean_agent_text, extract_tool_traces_from_text
-from pricing import extract_usage
-from langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
-from llm_service import call_databricks_llm
-from databricks_client import run_query, get_sql_connection, escape_sql
-from table_helpers import get_table_columns
+from core.text_processors import extract_json_from_text, clean_agent_text, extract_tool_traces_from_text
+from core.pricing import extract_usage
+from services.langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
+from services.llm_service import call_databricks_llm
+from services.databricks_client import run_query, get_sql_connection, escape_sql
+from core.table_helpers import get_table_columns
 from config import PREFERRED_DISPLAY_COLUMNS
 
 

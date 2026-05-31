@@ -2,7 +2,7 @@
 Table schema and column utilities for Databricks tables.
 """
 import streamlit as st
-from databricks_client import get_sql_connection
+from services.databricks_client import get_sql_connection
 
 
 _ALLOWED_TABLE_PATTERN = __import__('re').compile(r'^[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+\.[a-zA-Z0-9_]+$')

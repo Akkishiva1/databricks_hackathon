@@ -18,17 +18,17 @@ from config import (
     CUSTOMER_360_TABLE, LLM_ENDPOINT_NAME, DISPLAY_COLUMNS,
     INPUT_DBUS_PER_1M_TOKENS, OUTPUT_DBUS_PER_1M_TOKENS
 )
-from discovery_cache import (
+from core.discovery_cache import (
     get_cached_discovery_result, set_cached_discovery_result,
     is_low_risk_no_escalation_question
 )
-from customer_helpers import (
+from core.customer_helpers import (
     get_default_customer_name, get_default_customer_email,
     safe_customer_context
 )
-from text_processors import contains_kannada, contains_devanagari
-from email_service import send_email_notification
-from langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
+from core.text_processors import contains_kannada, contains_devanagari
+from services.email_service import send_email_notification
+from services.langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
 from agents.discovery import (
     agent_bricks_supervisor_discovery, custom_dynamic_supervisor_discovery
 )
