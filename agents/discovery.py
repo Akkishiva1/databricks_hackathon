@@ -490,11 +490,18 @@ def data_retrieval_agent(params: dict) -> pd.DataFrame:
     if order_by_parts:
         order_by_sql = "ORDER BY " + ", ".join(order_by_parts)
 
+    loan_id_col = available_columns_lower.get("loan_id", "loan_id")
+    inner_order = order_by_sql if order_by_sql else f"ORDER BY {loan_id_col}"
+
     query = f"""
-    SELECT
-      {", ".join(select_columns)}
-    FROM {CUSTOMER_360_TABLE}
-    WHERE {where_sql}
+    SELECT {", ".join(select_columns)}
+    FROM (
+      SELECT *,
+        ROW_NUMBER() OVER (PARTITION BY {loan_id_col} {inner_order}) AS _row_num
+      FROM {CUSTOMER_360_TABLE}
+      WHERE {where_sql}
+    ) _deduped
+    WHERE _row_num = 1
     {order_by_sql}
     LIMIT {int(limit)}
     """
