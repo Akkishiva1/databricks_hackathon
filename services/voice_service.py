@@ -57,11 +57,25 @@ def make_voice_call(to_phone: str, message: str, customer_name: str = "", langua
     twiml = build_twiml(message, customer_name, language)
     client = Client(account_sid, auth_token)
 
-    call = client.calls.create(
-        to=to_phone,
-        from_=from_number,
-        twiml=twiml,
-    )
+    try:
+        call = client.calls.create(
+            to=to_phone,
+            from_=from_number,
+            twiml=twiml,
+        )
+    except Exception as e:
+        error_msg = str(e)
+        if "21608" in error_msg or "unverified" in error_msg.lower():
+            raise ValueError(
+                f"Twilio trial account restriction: {to_phone} is not a verified number. "
+                "Go to twilio.com/console → Verified Caller IDs and add this number first."
+            )
+        if "21211" in error_msg or "invalid" in error_msg.lower():
+            raise ValueError(
+                f"Invalid phone number format: {to_phone}. "
+                "Use E.164 format, e.g. +919876543210"
+            )
+        raise
 
     return {
         "call_sid": call.sid,
