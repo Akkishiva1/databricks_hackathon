@@ -39,3 +39,12 @@ env:
 
   - name: "SENDER_EMAIL"
     value: "akkishiva@platformatory.com"
+
+  - name: "TWILIO_ACCOUNT_SID"
+    value: "AC7a1b2ab0babf24028cead31e74d53103"
+
+  - name: "TWILIO_AUTH_TOKEN"
+    value: "2342ec146808d52d79766bcfedece124"
+
+  - name: "TWILIO_FROM_NUMBER"
+    value: "+16812918596"

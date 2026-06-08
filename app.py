@@ -28,6 +28,7 @@ from core.customer_helpers import (
 )
 from core.text_processors import contains_kannada, contains_devanagari
 from services.email_service import send_email_notification
+from services.voice_service import make_voice_call, get_customer_phone
 from services.langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
 from agents.discovery import (
     agent_bricks_supervisor_discovery, custom_dynamic_supervisor_discovery
@@ -677,5 +678,132 @@ else:
                 f"Last email sent to {outputs.get('last_sent_to')} "
                 f"with subject: {outputs.get('last_sent_subject')}"
             )
+
+        # ---------------------------------------------------
+        # Outbound Voice Call — Twilio Programmable Voice TTS
+        # ---------------------------------------------------
+        st.markdown("---")
+        st.markdown("### Outbound Voice Call")
+
+        default_phone = get_customer_phone(customer)
+
+        call_col1, call_col2 = st.columns(2)
+
+        with call_col1:
+            recipient_phone = st.text_input(
+                "Customer phone number",
+                value=default_phone,
+                placeholder="+919876543210",
+                key=f"recipient_phone_{loan_id}"
+            )
+
+        with call_col2:
+            call_name = st.text_input(
+                "Customer name for greeting",
+                value=get_default_customer_name(customer),
+                key=f"call_name_{loan_id}"
+            )
+
+        if default_phone:
+            st.success(f"Customer phone loaded: {default_phone}")
+        else:
+            st.warning("No phone field found for this customer. Enter a number manually.")
+
+        call_confirmation = st.checkbox(
+            "I have reviewed the voice message and approve placing this call",
+            key=f"call_confirm_{loan_id}"
+        )
+
+        if st.button("Place Voice Call", key=f"place_call_{loan_id}"):
+            final_message_to_send = st.session_state.final_messages.get(loan_id, "")
+
+            if not call_confirmation:
+                st.warning("Please review and approve before placing the call.")
+            elif not recipient_phone.strip():
+                st.warning("Please enter a phone number before placing the call.")
+            elif not final_message_to_send.strip():
+                st.warning("Voice message cannot be empty.")
+            else:
+                with langfuse.start_as_current_observation(
+                    as_type="span",
+                    name="voice_call_agent",
+                    input={
+                        "loan_id": loan_id,
+                        "to_phone": recipient_phone.strip(),
+                        "customer_name": call_name.strip(),
+                        "message_preview": final_message_to_send[:300],
+                        "discovery_mode": discovery_mode,
+                    },
+                    metadata={
+                        "channel": "voice",
+                        "app": "loan_recovery_assistant",
+                        "human_approval_required": True,
+                    }
+                ) as call_span:
+                    try:
+                        call_result = make_voice_call(
+                            to_phone=recipient_phone.strip(),
+                            message=final_message_to_send.strip(),
+                            customer_name=call_name.strip()
+                        )
+
+                        outputs["voice_call_status"] = "initiated"
+                        outputs["voice_call_sid"] = call_result.get("call_sid")
+                        outputs["voice_call_to"] = recipient_phone.strip()
+
+                        call_span.update(
+                            output={
+                                "status": "initiated",
+                                "call_sid": call_result.get("call_sid"),
+                                "to_phone": recipient_phone.strip(),
+                            }
+                        )
+
+                        add_success_score(
+                            call_span,
+                            name="voice_call_placed",
+                            comment="Outbound voice call placed successfully after human approval"
+                        )
+
+                        add_categorical_score(
+                            call_span,
+                            name="voice_call_status",
+                            value="success",
+                            comment="Voice call initiated successfully"
+                        )
+
+                        st.session_state.agent_outputs[loan_id] = outputs
+                        st.success(
+                            f"Voice call initiated to {recipient_phone.strip()}. "
+                            f"Call SID: {call_result.get('call_sid')}"
+                        )
+
+                    except Exception as e:
+                        outputs["voice_call_status"] = "failed"
+                        outputs["voice_call_error"] = str(e)
+
+                        call_span.update(
+                            output={"status": "failed", "error": str(e)},
+                            level="ERROR",
+                        )
+
+                        add_categorical_score(
+                            call_span,
+                            name="voice_call_status",
+                            value="failed",
+                            comment=str(e)
+                        )
+
+                        st.session_state.agent_outputs[loan_id] = outputs
+                        st.error(f"Failed to place voice call: {e}")
+
+                    langfuse.flush()
+
+        if outputs.get("voice_call_status") == "initiated":
+            st.info(
+                f"Last call placed to {outputs.get('voice_call_to')} | "
+                f"Call SID: {outputs.get('voice_call_sid')}"
+            )
+
     else:
         st.info("Draft message will appear after dynamic analysis.")
