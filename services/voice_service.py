@@ -6,19 +6,19 @@ import os
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
 
-# Amazon Polly voices supported by Twilio for Indian languages.
-# Kannada, Tamil, Telugu, Malayalam are NOT supported by Polly —
-# for those languages the message should be kept in English or Hindi.
+# Amazon Polly voice-language pairs verified to work with Twilio.
+# Polly.Kajal supports ONLY en-IN and hi-IN natively.
+# All other Indian languages fall back to Polly.Kajal en-IN —
+# the officer should rephrase the message in English before calling
+# for those languages, or use the Hindi option for Hindi script.
 LANGUAGE_VOICE_MAP = {
-    "English (Indian)":  {"polly_voice": "Polly.Kajal",  "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
-    "Hindi":             {"polly_voice": "Polly.Kajal",  "language_code": "hi-IN", "closing": "कृपया जल्द से जल्द हमसे संपर्क करें।"},
-    "Bengali":           {"polly_voice": "Polly.Kajal",  "language_code": "bn-IN", "closing": "Please contact us at your earliest convenience."},
-    "Gujarati":          {"polly_voice": "Polly.Kajal",  "language_code": "gu-IN", "closing": "Please contact us at your earliest convenience."},
-    "Marathi":           {"polly_voice": "Polly.Kajal",  "language_code": "mr-IN", "closing": "Please contact us at your earliest convenience."},
-    "Punjabi":           {"polly_voice": "Polly.Kajal",  "language_code": "pa-IN", "closing": "Please contact us at your earliest convenience."},
+    "English (Indian)":        {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "Hindi":                   {"polly_voice": "Polly.Kajal", "language_code": "hi-IN", "closing": "कृपया जल्द से जल्द हमसे संपर्क करें।"},
     "Kannada (English voice)": {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
     "Tamil (English voice)":   {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
     "Telugu (English voice)":  {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "Marathi (English voice)": {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "Bengali (English voice)": {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
 }
 
 SUPPORTED_LANGUAGES = list(LANGUAGE_VOICE_MAP.keys())
@@ -57,11 +57,25 @@ def make_voice_call(to_phone: str, message: str, customer_name: str = "", langua
     twiml = build_twiml(message, customer_name, language)
     client = Client(account_sid, auth_token)
 
-    call = client.calls.create(
-        to=to_phone,
-        from_=from_number,
-        twiml=twiml,
-    )
+    try:
+        call = client.calls.create(
+            to=to_phone,
+            from_=from_number,
+            twiml=twiml,
+        )
+    except Exception as e:
+        error_msg = str(e)
+        if "21608" in error_msg or "unverified" in error_msg.lower():
+            raise ValueError(
+                f"Twilio trial account restriction: {to_phone} is not a verified number. "
+                "Go to twilio.com/console → Verified Caller IDs and add this number first."
+            )
+        if "21211" in error_msg or "invalid" in error_msg.lower():
+            raise ValueError(
+                f"Invalid phone number format: {to_phone}. "
+                "Use E.164 format, e.g. +919876543210"
+            )
+        raise
 
     return {
         "call_sid": call.sid,
