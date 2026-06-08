@@ -28,7 +28,7 @@ from core.customer_helpers import (
 )
 from core.text_processors import contains_kannada, contains_devanagari
 from services.email_service import send_email_notification
-from services.voice_service import make_voice_call, get_customer_phone
+from services.voice_service import make_voice_call, get_customer_phone, SUPPORTED_LANGUAGES
 from services.langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
 from agents.discovery import (
     agent_bricks_supervisor_discovery, custom_dynamic_supervisor_discovery
@@ -687,7 +687,7 @@ else:
 
         default_phone = get_customer_phone(customer)
 
-        call_col1, call_col2 = st.columns(2)
+        call_col1, call_col2, call_col3 = st.columns(3)
 
         with call_col1:
             recipient_phone = st.text_input(
@@ -702,6 +702,14 @@ else:
                 "Customer name for greeting",
                 value=get_default_customer_name(customer),
                 key=f"call_name_{loan_id}"
+            )
+
+        with call_col3:
+            call_language = st.selectbox(
+                "Voice language",
+                options=SUPPORTED_LANGUAGES,
+                index=0,
+                key=f"call_language_{loan_id}"
             )
 
         if default_phone:
@@ -731,6 +739,7 @@ else:
                         "loan_id": loan_id,
                         "to_phone": recipient_phone.strip(),
                         "customer_name": call_name.strip(),
+                        "language": call_language,
                         "message_preview": final_message_to_send[:300],
                         "discovery_mode": discovery_mode,
                     },
@@ -744,7 +753,8 @@ else:
                         call_result = make_voice_call(
                             to_phone=recipient_phone.strip(),
                             message=final_message_to_send.strip(),
-                            customer_name=call_name.strip()
+                            customer_name=call_name.strip(),
+                            language=call_language
                         )
 
                         outputs["voice_call_status"] = "initiated"
