@@ -123,6 +123,21 @@ def make_conversational_call(
     return {"call_sid": call.sid, "to_phone": to_phone, "status": call.status, "language": language, "mode": "conversational"}
 
 
+def spell_loan_ids(text: str) -> str:
+    """
+    Find patterns that look like loan IDs (e.g. L12345, LN-00123, 8-digit+ numbers)
+    and insert spaces between characters so Polly reads them digit by digit.
+    """
+    import re
+    def _spell(m):
+        return " ".join(m.group(0))
+    # Letters + digits (loan IDs like L12345, LN00456) — 5+ digits
+    text = re.sub(r'\b[A-Z]+\d{5,}\b', _spell, text)
+    # Pure digit strings 8+ digits (loan IDs, not amounts like 50000)
+    text = re.sub(r'\b\d{8,}\b', _spell, text)
+    return text
+
+
 def build_twiml(message: str, customer_name: str = "", language: str = "English (Indian)") -> str:
     """Build TwiML with the correct Polly voice for the selected Indian language."""
     config = LANGUAGE_VOICE_MAP.get(language, LANGUAGE_VOICE_MAP["English (Indian)"])
@@ -133,7 +148,7 @@ def build_twiml(message: str, customer_name: str = "", language: str = "English 
     response = VoiceResponse()
 
     greeting = f"Hello {customer_name}, " if customer_name else "Hello, "
-    full_text = greeting + message + " Thank you."
+    full_text = greeting + spell_loan_ids(message) + " Thank you."
 
     response.say(full_text, voice=polly_voice, language=language_code)
     response.pause(length=1)

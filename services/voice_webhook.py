@@ -13,6 +13,11 @@ app = FastAPI()
 
 VOICE = "Polly.Raveena"
 LANGUAGE = "en-IN"
+
+
+def spell_out(value: str) -> str:
+    """Insert spaces between every character so Polly reads each digit/letter individually."""
+    return " ".join(str(value).strip())
 HINDI_VOICE = "Polly.Aditi"
 HINDI_LANGUAGE = "hi-IN"
 
@@ -93,7 +98,7 @@ async def gather_webhook(
         )
         gather.say(
             f"Thank you, {spoken_name}. "
-            f"This message is regarding loan {loan_id}. "
+            f"This message is regarding loan {spell_out(loan_id)}. "
             f"{message} "
             f"Press 1 to confirm you have received this message, or press 2 to repeat.",
             voice=voice,
@@ -121,7 +126,7 @@ async def gather_webhook(
             )
             gather.say(
                 f"Repeating the message. "
-                f"This message is regarding loan {loan_id}. "
+                f"This message is regarding loan {spell_out(loan_id)}. "
                 f"{message} "
                 f"Press 1 to confirm, or press 2 to repeat.",
                 voice=voice,
