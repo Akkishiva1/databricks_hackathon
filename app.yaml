@@ -39,3 +39,12 @@ env:
 
   - name: "SENDER_EMAIL"
     value: "akkishiva@platformatory.com"
+
+  - name: "TWILIO_ACCOUNT_SID"
+    value: ""
+
+  - name: "TWILIO_AUTH_TOKEN"
+    value: ""
+
+  - name: "TWILIO_FROM_NUMBER"
+    value: ""
