@@ -6,19 +6,17 @@ import os
 from twilio.rest import Client
 from twilio.twiml.voice_response import VoiceResponse
 
-# Amazon Polly voice-language pairs verified to work with Twilio.
-# Polly.Kajal supports ONLY en-IN and hi-IN natively.
-# All other Indian languages fall back to Polly.Kajal en-IN —
-# the officer should rephrase the message in English before calling
-# for those languages, or use the Hindi option for Hindi script.
+# Polly.Kajal is a Neural voice requiring a paid Twilio plan.
+# Polly.Raveena (en-IN) and Polly.Aditi (en-IN/hi-IN bilingual)
+# are standard voices that work on all Twilio accounts including trial.
 LANGUAGE_VOICE_MAP = {
-    "English (Indian)":        {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
-    "Hindi":                   {"polly_voice": "Polly.Kajal", "language_code": "hi-IN", "closing": "कृपया जल्द से जल्द हमसे संपर्क करें।"},
-    "Kannada (English voice)": {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
-    "Tamil (English voice)":   {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
-    "Telugu (English voice)":  {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
-    "Marathi (English voice)": {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
-    "Bengali (English voice)": {"polly_voice": "Polly.Kajal", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "English (Indian)":        {"polly_voice": "Polly.Raveena", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "Hindi":                   {"polly_voice": "Polly.Aditi",   "language_code": "hi-IN", "closing": "कृपया जल्द से जल्द हमसे संपर्क करें।"},
+    "Kannada (English voice)": {"polly_voice": "Polly.Raveena", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "Tamil (English voice)":   {"polly_voice": "Polly.Raveena", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "Telugu (English voice)":  {"polly_voice": "Polly.Raveena", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "Marathi (English voice)": {"polly_voice": "Polly.Raveena", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
+    "Bengali (English voice)": {"polly_voice": "Polly.Raveena", "language_code": "en-IN", "closing": "Please contact us at your earliest convenience."},
 }
 
 SUPPORTED_LANGUAGES = list(LANGUAGE_VOICE_MAP.keys())
