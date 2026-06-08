@@ -28,7 +28,7 @@ from core.customer_helpers import (
 )
 from core.text_processors import contains_kannada, contains_devanagari
 from services.email_service import send_email_notification
-from services.voice_service import make_voice_call, get_customer_phone, SUPPORTED_LANGUAGES
+from services.voice_service import make_voice_call, make_conversational_call, get_customer_phone, SUPPORTED_LANGUAGES
 from services.langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
 from agents.discovery import (
     agent_bricks_supervisor_discovery, custom_dynamic_supervisor_discovery
@@ -717,6 +717,22 @@ else:
         else:
             st.warning("No phone field found for this customer. Enter a number manually.")
 
+        call_mode = st.radio(
+            "Call mode",
+            ["Simple TTS", "Conversational IVR (asks customer name + confirmation)"],
+            key=f"call_mode_{loan_id}",
+            horizontal=True,
+        )
+
+        webhook_url = ""
+        if "Conversational" in call_mode:
+            webhook_url = st.text_input(
+                "Webhook base URL (your public app URL)",
+                placeholder="https://your-databricks-app.azuredatabricks.net",
+                key=f"webhook_url_{loan_id}",
+                help="Twilio needs a public URL to call back during the conversation. Use your Databricks App URL.",
+            )
+
         call_confirmation = st.checkbox(
             "I have reviewed the voice message and approve placing this call",
             key=f"call_confirm_{loan_id}"
@@ -750,12 +766,26 @@ else:
                     }
                 ) as call_span:
                     try:
-                        call_result = make_voice_call(
-                            to_phone=recipient_phone.strip(),
-                            message=final_message_to_send.strip(),
-                            customer_name=call_name.strip(),
-                            language=call_language
-                        )
+                        if "Conversational" in call_mode:
+                            if not webhook_url.strip():
+                                st.warning("Please enter the webhook base URL for conversational calls.")
+                                langfuse.flush()
+                                st.stop()
+                            call_result = make_conversational_call(
+                                to_phone=recipient_phone.strip(),
+                                loan_id=str(loan_id),
+                                message=final_message_to_send.strip(),
+                                customer_name=call_name.strip(),
+                                language=call_language,
+                                webhook_base_url=webhook_url.strip(),
+                            )
+                        else:
+                            call_result = make_voice_call(
+                                to_phone=recipient_phone.strip(),
+                                message=final_message_to_send.strip(),
+                                customer_name=call_name.strip(),
+                                language=call_language,
+                            )
 
                         outputs["voice_call_status"] = "initiated"
                         outputs["voice_call_sid"] = call_result.get("call_sid")
