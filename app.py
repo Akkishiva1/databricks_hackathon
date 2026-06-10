@@ -923,12 +923,25 @@ else:
         final_msg = st.session_state.final_messages.get(loan_id, "")
         customer_name_for_recovery = get_default_customer_name(customer)
         customer_email_for_recovery = get_default_customer_email(customer)
-        customer_phone_for_recovery = get_customer_phone(customer)
         outstanding_amount = float(
             customer.get("loan_amount") or customer.get("funded_amount") or 0
         )
         dpd_val = int(float(customer.get("dpd", 0) or 0))
         refused_count_val = int(float(customer.get("refused_count", 0) or 0))
+
+        detected_phone = get_customer_phone(customer)
+        if detected_phone:
+            st.success(f"Customer phone detected: {detected_phone}")
+        else:
+            st.warning("No phone number found in customer record. Enter one manually for SMS/voice actions.")
+
+        recovery_phone_override = st.text_input(
+            "Customer phone number (for SMS/voice)",
+            value=detected_phone,
+            placeholder="+919876543210",
+            key=f"recovery_phone_{loan_id}",
+        )
+        customer_phone_for_recovery = recovery_phone_override.strip() or detected_phone
 
         recovery_approved = st.checkbox(
             f"Approve executing all {len(actions)} recovery action(s) for this customer",

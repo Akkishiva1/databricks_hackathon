@@ -165,10 +165,23 @@ def get_call_transcript(call_sid: str) -> dict:
 
 def get_customer_phone(customer: dict) -> str:
     """Extract phone number from customer record."""
-    for field in ["phone", "phone_number", "mobile", "mobile_number", "contact_number", "cell"]:
+    candidates = [
+        "phone", "phone_number", "mobile", "mobile_number",
+        "contact_number", "cell", "cell_number", "telephone",
+        "tel", "contact", "customer_phone", "customer_mobile",
+        "primary_phone", "primary_mobile", "alt_phone", "alternate_phone",
+        "whatsapp", "whatsapp_number",
+    ]
+    for field in candidates:
         value = customer.get(field) or customer.get(field.upper())
-        if value:
+        if value and str(value).strip() not in ("", "nan", "None", "null"):
             return str(value).strip()
+
+    # Last resort: scan all fields whose name contains 'phone' or 'mobile'
+    for key, value in customer.items():
+        if any(kw in str(key).lower() for kw in ("phone", "mobile", "contact", "cell")):
+            if value and str(value).strip() not in ("", "nan", "None", "null"):
+                return str(value).strip()
     return ""
 
 
