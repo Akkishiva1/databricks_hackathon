@@ -961,9 +961,14 @@ else:
                     with st.spinner("Sending SMS notification..."):
                         if customer_phone_for_recovery:
                             try:
+                                sms_text = (
+                                    f"Loan Recovery Notice: Loan {loan_id}, "
+                                    f"DPD {dpd_val} days, outstanding Rs.{int(outstanding_amount):,}. "
+                                    f"Please contact your loan officer immediately."
+                                )
                                 sms_result = send_sms_notification(
                                     to_phone=customer_phone_for_recovery,
-                                    message=f"[Loan Recovery Notice] {final_msg[:400]}",
+                                    message=sms_text,
                                 )
                                 recovery_results["sms"] = {"status": "sent", **sms_result}
                                 st.success(f"SMS sent to {customer_phone_for_recovery} — SID: {sms_result.get('message_sid')}")
