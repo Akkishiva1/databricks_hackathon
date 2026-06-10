@@ -28,7 +28,14 @@ from core.customer_helpers import (
 )
 from core.text_processors import contains_kannada, contains_devanagari
 from services.email_service import send_email_notification
-from services.voice_service import make_voice_call, make_conversational_call, get_customer_phone, SUPPORTED_LANGUAGES
+from services.sms_service import send_sms_notification
+from services.cibil_service import report_to_cibil, notify_cibil_report
+from services.penalty_service import apply_penalty, get_penalty_summary
+from services.legal_service import file_legal_complaint, get_legal_case_summary
+from services.voice_service import (
+    make_voice_call, make_conversational_call, get_customer_phone,
+    get_call_transcript, SUPPORTED_LANGUAGES,
+)
 from services.langfuse_service import langfuse, add_success_score, add_trace_quality_score, add_categorical_score
 from agents.discovery import (
     agent_bricks_supervisor_discovery, custom_dynamic_supervisor_discovery
@@ -36,6 +43,10 @@ from agents.discovery import (
 from agents.analysis import (
     risk_analysis_agent, recommendation_agent, communication_agent,
     rephrase_agent, audit_logger_agent
+)
+from agents.recovery_strategy import (
+    determine_recovery_tier, get_recovery_actions,
+    get_tier_label, get_tier_description, ACTION_LABELS,
 )
 
 
@@ -72,6 +83,8 @@ def initialize_session_state():
         "discovery_mode": None,
         "discovery_summary": "",
         "discovery_cache": {},
+        "recovery_actions": {},
+        "voice_transcripts": {},
     }
     
     for key, value in defaults.items():
@@ -844,6 +857,221 @@ else:
                 f"Last call placed to {outputs.get('voice_call_to')} | "
                 f"Call SID: {outputs.get('voice_call_sid')}"
             )
+
+            # Show voice transcript if available (conversational calls)
+            call_sid = outputs.get("voice_call_sid", "")
+            if call_sid:
+                transcript_data = get_call_transcript(call_sid)
+                if transcript_data and transcript_data.get("transcript"):
+                    st.session_state.voice_transcripts[loan_id] = transcript_data
+                    with st.expander("Voice Conversation Transcript", expanded=False):
+                        for turn in transcript_data["transcript"]:
+                            role = turn.get("role", "")
+                            text = turn.get("text", "")
+                            ts   = turn.get("ts", "")
+                            label = "Agent" if role == "agent" else "Customer"
+                            st.markdown(f"**{label}** `{ts}`: {text}")
+                        outcome = transcript_data.get("outcome", "pending")
+                        spoken  = transcript_data.get("spoken_name", "")
+                        st.caption(f"Outcome: **{outcome}** | Customer identified as: {spoken or 'unknown'}")
+
+        # --------------------------------------------------------
+        # Voice Transcript as Future Context
+        # --------------------------------------------------------
+        prior_transcript = st.session_state.voice_transcripts.get(loan_id)
+        if prior_transcript and prior_transcript.get("transcript"):
+            with st.expander("Prior Voice Conversation Context", expanded=False):
+                st.markdown(
+                    "The following voice conversation transcript was captured and "
+                    "can be used as additional context for the next agent interaction."
+                )
+                st.json(prior_transcript)
+
+        # ======================================================
+        # Dynamic Recovery Strategy
+        # ======================================================
+        st.markdown("---")
+        st.subheader("Dynamic Recovery Strategy")
+
+        tier = determine_recovery_tier(customer)
+        tier_label = get_tier_label(tier)
+        tier_desc  = get_tier_description(tier)
+        actions    = get_recovery_actions(tier)
+
+        tier_colors = {1: "#2e7d32", 2: "#e65100", 3: "#b71c1c", 4: "#4a148c"}
+        tier_color  = tier_colors.get(tier, "#546e7a")
+
+        st.markdown(
+            f"<div style='border-left: 5px solid {tier_color}; padding: 0.5rem 1rem; "
+            f"background: #f9f9f9; border-radius: 4px;'>"
+            f"<b style='color:{tier_color};'>{tier_label}</b><br/>{tier_desc}"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("**Recovery actions determined for this customer:**")
+        for action in actions:
+            st.markdown(f"- {ACTION_LABELS.get(action, action)}")
+
+        if loan_id not in st.session_state.recovery_actions:
+            st.session_state.recovery_actions[loan_id] = {}
+        recovery = st.session_state.recovery_actions[loan_id]
+
+        # --------------------------------------------------------
+        # Execute Recovery Actions
+        # --------------------------------------------------------
+        final_msg = st.session_state.final_messages.get(loan_id, "")
+        customer_name_for_recovery = get_default_customer_name(customer)
+        customer_email_for_recovery = get_default_customer_email(customer)
+        customer_phone_for_recovery = get_customer_phone(customer)
+        outstanding_amount = float(
+            customer.get("loan_amount") or customer.get("funded_amount") or 0
+        )
+        dpd_val = int(float(customer.get("dpd", 0) or 0))
+        refused_count_val = int(float(customer.get("refused_count", 0) or 0))
+
+        recovery_approved = st.checkbox(
+            f"Approve executing all {len(actions)} recovery action(s) for this customer",
+            key=f"recovery_approve_{loan_id}",
+        )
+
+        if st.button("Execute Recovery Strategy", key=f"execute_recovery_{loan_id}"):
+            if not recovery_approved:
+                st.warning("Please approve the recovery actions before executing.")
+            elif not final_msg.strip():
+                st.warning("Generate a draft message first before executing recovery.")
+            else:
+                recovery_results = {}
+
+                # --- SMS ---
+                if "sms" in actions:
+                    with st.spinner("Sending SMS notification..."):
+                        if customer_phone_for_recovery:
+                            try:
+                                sms_result = send_sms_notification(
+                                    to_phone=customer_phone_for_recovery,
+                                    message=f"[Loan Recovery Notice] {final_msg[:400]}",
+                                )
+                                recovery_results["sms"] = {"status": "sent", **sms_result}
+                                st.success(f"SMS sent to {customer_phone_for_recovery} — SID: {sms_result.get('message_sid')}")
+                            except Exception as e:
+                                recovery_results["sms"] = {"status": "failed", "error": str(e)}
+                                st.warning(f"SMS failed: {e}")
+                        else:
+                            recovery_results["sms"] = {"status": "skipped", "reason": "No phone number available"}
+                            st.info("SMS skipped: no phone number for this customer.")
+
+                # --- CIBIL Report ---
+                if "cibil_report" in actions:
+                    with st.spinner("Filing CIBIL adverse report..."):
+                        try:
+                            cibil_record = report_to_cibil(
+                                customer=customer,
+                                loan_id=loan_id,
+                                outstanding_amount=outstanding_amount,
+                                dpd=dpd_val,
+                                reason=outputs.get("risk_explanation", ""),
+                            )
+                            notify_result = notify_cibil_report(
+                                customer=customer,
+                                report=cibil_record,
+                                to_email=customer_email_for_recovery,
+                                to_phone=customer_phone_for_recovery,
+                            )
+                            recovery_results["cibil_report"] = {
+                                "status": "filed",
+                                "report_id": cibil_record["report_id"],
+                                "notifications": notify_result,
+                            }
+                            st.success(
+                                f"CIBIL report filed — Ref: {cibil_record['report_id']}. "
+                                f"Customer notified via email/SMS."
+                            )
+                        except Exception as e:
+                            recovery_results["cibil_report"] = {"status": "failed", "error": str(e)}
+                            st.warning(f"CIBIL reporting failed: {e}")
+
+                # --- Penalty ---
+                if "penalty" in actions:
+                    with st.spinner("Applying financial penalty..."):
+                        try:
+                            penalty_record = apply_penalty(
+                                customer=customer,
+                                loan_id=loan_id,
+                                outstanding_amount=outstanding_amount,
+                                dpd=dpd_val,
+                                applied_by="recovery_strategy_agent",
+                            )
+                            recovery_results["penalty"] = penalty_record
+                            penalty_summary = get_penalty_summary(penalty_record)
+                            if penalty_record.get("status") == "applied":
+                                st.success(
+                                    f"Penalty applied — ID: {penalty_record['penalty_id']} | "
+                                    f"Amount: ₹{penalty_record['penalty_amount']:,.2f}"
+                                )
+                            else:
+                                st.info(penalty_summary)
+                        except Exception as e:
+                            recovery_results["penalty"] = {"status": "failed", "error": str(e)}
+                            st.warning(f"Penalty application failed: {e}")
+
+                # --- Legal Complaint ---
+                if "legal_complaint" in actions:
+                    with st.spinner("Filing legal complaint..."):
+                        try:
+                            legal_case = file_legal_complaint(
+                                customer=customer,
+                                loan_id=loan_id,
+                                outstanding_amount=outstanding_amount,
+                                dpd=dpd_val,
+                                refused_count=refused_count_val,
+                                reason=outputs.get("risk_explanation", ""),
+                                filed_by="recovery_strategy_agent",
+                            )
+                            recovery_results["legal_complaint"] = legal_case
+                            st.error(
+                                f"Legal complaint filed — Case ID: {legal_case['case_id']} | "
+                                f"Type: {legal_case['action_type']} | "
+                                f"Next Hearing: {legal_case['next_hearing_date']}"
+                            )
+                        except Exception as e:
+                            recovery_results["legal_complaint"] = {"status": "failed", "error": str(e)}
+                            st.warning(f"Legal complaint filing failed: {e}")
+
+                st.session_state.recovery_actions[loan_id] = recovery_results
+
+        # --- Show previous recovery results ---
+        if recovery:
+            st.markdown("---")
+            st.markdown("**Recovery Actions Already Executed:**")
+
+            if "sms" in recovery:
+                r = recovery["sms"]
+                icon = "✅" if r.get("status") == "sent" else "⚠️"
+                st.write(f"{icon} SMS: {r.get('status')} {r.get('message_sid', r.get('reason', r.get('error', '')))}")
+
+            if "cibil_report" in recovery:
+                r = recovery["cibil_report"]
+                icon = "✅" if r.get("status") == "filed" else "⚠️"
+                st.write(f"{icon} CIBIL: {r.get('status')} — Ref: {r.get('report_id', r.get('error', ''))}")
+
+            if "penalty" in recovery:
+                r = recovery["penalty"]
+                icon = "✅" if r.get("status") in ("applied", "skipped") else "⚠️"
+                amt  = f"₹{r['penalty_amount']:,.2f}" if r.get("status") == "applied" else ""
+                pen_id = r.get("penalty_id", r.get("error", ""))
+                st.write(f"{icon} Penalty: {r.get('status')} {pen_id} {amt}")
+
+            if "legal_complaint" in recovery:
+                r = recovery["legal_complaint"]
+                icon = "✅" if r.get("status") == "filed" else "⚠️"
+                st.write(
+                    f"{icon} Legal: {r.get('status')} — Case: {r.get('case_id', r.get('error', ''))} "
+                    f"| Type: {r.get('action_type', '')} | Hearing: {r.get('next_hearing_date', '')}"
+                )
+
+            with st.expander("Full Recovery Action Details", expanded=False):
+                st.json(recovery)
 
     else:
         st.info("Draft message will appear after dynamic analysis.")

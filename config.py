@@ -135,6 +135,29 @@ DISPLAY_COLUMNS = [
 ]
 
 # -------------------------------------------------
+# Recovery Strategy Table Names
+# -------------------------------------------------
+PENALTY_TABLE = os.getenv(
+    "PENALTY_TABLE",
+    "loan_recovery.gold.loan_recovery_penalties"
+)
+
+LEGAL_CASE_TABLE = os.getenv(
+    "LEGAL_CASE_TABLE",
+    "loan_recovery.gold.loan_recovery_legal_cases"
+)
+
+CIBIL_REPORT_TABLE = os.getenv(
+    "CIBIL_REPORT_TABLE",
+    "loan_recovery.gold.loan_recovery_cibil_reports"
+)
+
+VOICE_TRANSCRIPT_TABLE = os.getenv(
+    "VOICE_TRANSCRIPT_TABLE",
+    "loan_recovery.gold.loan_recovery_voice_transcripts"
+)
+
+# -------------------------------------------------
 # Business Logic Phrases
 # -------------------------------------------------
 NORMAL_CUSTOMER_PHRASES = [
