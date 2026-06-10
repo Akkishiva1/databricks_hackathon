@@ -74,9 +74,8 @@ def notify_cibil_report(
     )
 
     sms_body = (
-        f"ALERT: An adverse CIBIL report (Ref: {report_id}) has been filed for Loan {loan_id} "
-        f"due to {dpd} days overdue of ₹{amount:,.2f}. "
-        f"Clear dues immediately to avoid further credit damage."
+        f"CIBIL report filed for Loan {loan_id} (Ref: {report_id}). "
+        f"DPD: {dpd} days. Clear dues to avoid credit damage."
     )
 
     results = {"report_id": report_id}
