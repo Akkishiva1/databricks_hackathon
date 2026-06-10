@@ -157,6 +157,12 @@ def build_twiml(message: str, customer_name: str = "", language: str = "English 
     return str(response)
 
 
+def get_call_transcript(call_sid: str) -> dict:
+    """Return structured conversation output for a completed conversational call."""
+    from services.voice_webhook import get_call_transcript as _get
+    return _get(call_sid)
+
+
 def get_customer_phone(customer: dict) -> str:
     """Extract phone number from customer record."""
     for field in ["phone", "phone_number", "mobile", "mobile_number", "contact_number", "cell"]:
